@@ -5,5 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "ipdb>=0.13.13",
+    "pydantic>=2.11.7",
     "ty>=0.0.1a14",
 ]
