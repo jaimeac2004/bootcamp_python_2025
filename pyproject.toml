@@ -1,5 +1,5 @@
 [project]
-name = "bootcamp-python-2025"
+name = "cards-against-humanity"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
