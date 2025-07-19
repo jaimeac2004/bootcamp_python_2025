@@ -132,7 +132,7 @@ Your choice: """,
         hostname: str = (
             get_user_input(
                 f"Host IP (default: {DEFAULT_WS_HOST}): ",
-                lambda x: x.strip() == "",
+                lambda _: True,
             ).strip()
             or DEFAULT_WS_HOST
         )

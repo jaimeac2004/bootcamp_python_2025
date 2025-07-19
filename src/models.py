@@ -2,7 +2,7 @@ import random
 import time
 from enum import Enum, auto
 from html import unescape
-from typing import Annotated, TypeVar
+from typing import Annotated, Any, TypeVar
 from uuid import UUID, uuid4
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, Field
@@ -15,11 +15,16 @@ class CAHDrawingListEmpty(Exception): ...
 T = TypeVar("T")
 
 
-class NetworkRequest(str, Enum):
+class MessageType(str, Enum):
     GET_GAME_STATE = auto()
     SET_PLAYER_INFO = auto()
     ACK = auto()
     DISCONNECT = auto()
+
+
+class Message(BaseModel):
+    type: MessageType
+    data: Any
 
 
 class PlayerRole(str, Enum):
