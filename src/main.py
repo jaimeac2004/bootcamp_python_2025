@@ -1,4 +1,6 @@
+import asyncio
 import random
+import sys
 from collections import defaultdict
 from copy import deepcopy
 from enum import IntEnum, auto
@@ -10,9 +12,10 @@ from pydantic import UUID4
 from rich.console import Console
 from rich.table import Table
 
-from models import Deck, Player, WhiteCard
+from models import Deck, GameSettings, Player, WhiteCard
+from multiplayer import DEFAULT_WS_HOST, DEFAULT_WS_PORT, run_client, start_server
 
-DECKS_DIR = Path(__file__).parent / "decks"
+DECKS_DIR = Path(__file__).parent.parent / "decks"
 HAND_SIZE = 5
 
 console = Console()
@@ -42,7 +45,10 @@ class MultiplayerMode(IntEnum):
     JOIN = auto()
 
 
-def get_user_input(msg: str, is_input_valid: Callable[[str], bool]) -> Any:
+def get_user_input(
+    msg: str,
+    is_input_valid: Callable[[str], bool] = lambda x: bool(x.strip()),
+) -> Any:
     choice = None
 
     ready = False
@@ -53,17 +59,52 @@ def get_user_input(msg: str, is_input_valid: Callable[[str], bool]) -> Any:
                 ready = True
             else:
                 logger.warning("Invalid input, please try again")
+        except KeyboardInterrupt:
+            sys.exit()
+
         except Exception as e:
             logger.error(e)
 
     return choice
 
 
-def init_host_mode() -> None:
-    pass
+def setup_game() -> GameSettings:
+    settings_dict: dict[str, Any] = {
+        "deck": Deck.model_validate_json((DECKS_DIR / "CAH.json").read_bytes()),
+    }
+
+    print("Please, configure the game settings:\n")
+    for key, field_info in GameSettings.model_fields.items():
+        if key in settings_dict:
+            # skip protected keys like deck
+            continue
+
+        type_caster = type(field_info.default)
+        choice = get_user_input(
+            f"{key} (default: {field_info.default})",
+            lambda x: x.strip() == "" or int(x) > 0,
+        )
+
+        if choice.strip() == "":
+            continue
+
+        settings_dict[key] = type_caster(choice)
+
+    game_settings = GameSettings.model_validate(settings_dict)
+
+    print("------------------------------")
+    print("Game settings:")
+    for key, value in game_settings.model_dump().items():
+        display_value = value
+        if key == "deck":
+            display_value = value["name"]
+
+        print(f"- {key.upper()}: {display_value}")
+
+    return game_settings
 
 
-def main():
+async def main():
     multiplayer_mode = MultiplayerMode(
         int(
             get_user_input(
@@ -78,16 +119,39 @@ Your choice: """,
 
     logger.info(f"Player working as {multiplayer_mode.name}")
 
+    server_task: asyncio.Task | None = None
+
     if multiplayer_mode is MultiplayerMode.HOST:
-        init_host_mode()
+        hostname, port = DEFAULT_WS_HOST, DEFAULT_WS_PORT
+
+        game_settings = setup_game()
+        server_task = asyncio.create_task(start_server(game_settings))
+
+        await asyncio.sleep(0.5)
     else:
-        pass
+        hostname: str = (
+            get_user_input(
+                f"Host IP (default: {DEFAULT_WS_HOST}): ",
+                lambda x: x.strip() == "",
+            ).strip()
+            or DEFAULT_WS_HOST
+        )
+        port = int(
+            get_user_input(
+                f"Host port (default: {DEFAULT_WS_PORT}): ",
+                lambda x: x.strip() == "" or int(x) > 0,
+            ).strip()
+            or DEFAULT_WS_PORT
+        )
 
-    deck = Deck.model_validate_json((DECKS_DIR / "CAH.json").read_bytes())
+    await run_client(hostname, port)
 
-    logger.debug(f"{len(deck.white_cards)=} {len(deck.used_white_cards)=}")
-    logger.debug(f"{len(deck.black_cards)=} {len(deck.used_black_cards)=}")
+    if server_task:
+        await server_task
 
+    return
+
+    # OLD, TBD
     player_names = (
         "Yepes",
         "Mangel",
@@ -199,4 +263,4 @@ Your choice: """,
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

@@ -3,7 +3,7 @@ import time
 from enum import Enum, auto
 from html import unescape
 from typing import Annotated, TypeVar
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, Field
 from pydantic.types import UUID4
@@ -13,6 +13,13 @@ class CAHDrawingListEmpty(Exception): ...
 
 
 T = TypeVar("T")
+
+
+class NetworkRequest(str, Enum):
+    GET_GAME_STATE = auto()
+    SET_PLAYER_INFO = auto()
+    ACK = auto()
+    DISCONNECT = auto()
 
 
 class PlayerRole(str, Enum):
@@ -124,6 +131,6 @@ class Phase(str, Enum):
 
 class GameState(BaseModel):
     settings: GameSettings
-    phase: Phase
-    players: list[Player]
-    black_card: BlackCard
+    phase: Phase = Phase.SETUP
+    black_card: BlackCard | None = None
+    players: dict[UUID, Player] = Field(default_factory=dict)
