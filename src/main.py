@@ -45,7 +45,7 @@ class MultiplayerMode(IntEnum):
     JOIN = auto()
 
 
-def get_user_input(
+async def get_user_input(
     msg: str,
     is_input_valid: Callable[[str], bool] = lambda x: bool(x.strip()),
 ) -> Any:
@@ -54,7 +54,7 @@ def get_user_input(
     ready = False
     while not ready:
         try:
-            choice = input(msg)
+            choice = await asyncio.to_thread(input, msg)
             if is_input_valid(choice):
                 ready = True
             else:
@@ -68,7 +68,7 @@ def get_user_input(
     return choice
 
 
-def setup_game() -> GameSettings:
+async def setup_game() -> GameSettings:
     settings_dict: dict[str, Any] = {
         "deck": Deck.model_validate_json((DECKS_DIR / "CAH.json").read_bytes()),
     }
@@ -80,7 +80,7 @@ def setup_game() -> GameSettings:
             continue
 
         type_caster = type(field_info.default)
-        choice = get_user_input(
+        choice = await get_user_input(
             f"{key} (default: {field_info.default})",
             lambda x: x.strip() == "" or int(x) > 0,
         )
@@ -107,7 +107,7 @@ def setup_game() -> GameSettings:
 async def main():
     multiplayer_mode = MultiplayerMode(
         int(
-            get_user_input(
+            await get_user_input(
                 f"""
 Please choose one:
 {"\n".join([f"{mode.value} - {mode.name}" for mode in MultiplayerMode])}
@@ -124,22 +124,23 @@ Your choice: """,
     if multiplayer_mode is MultiplayerMode.HOST:
         hostname, port = DEFAULT_WS_HOST, DEFAULT_WS_PORT
 
-        game_settings = setup_game()
+        game_settings = await setup_game()
         server_task = asyncio.create_task(start_server(game_settings))
 
         await asyncio.sleep(0.5)
     else:
         hostname: str = (
-            get_user_input(
+            await get_user_input(
                 f"Host IP (default: {DEFAULT_WS_HOST}): ",
                 lambda _: True,
-            ).strip()
-            or DEFAULT_WS_HOST
-        )
+            )
+        ).strip() or DEFAULT_WS_HOST
         port = int(
-            get_user_input(
-                f"Host port (default: {DEFAULT_WS_PORT}): ",
-                lambda x: x.strip() == "" or int(x) > 0,
+            (
+                await get_user_input(
+                    f"Host port (default: {DEFAULT_WS_PORT}): ",
+                    lambda x: x.strip() == "" or int(x) > 0,
+                )
             ).strip()
             or DEFAULT_WS_PORT
         )

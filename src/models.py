@@ -16,7 +16,7 @@ T = TypeVar("T")
 
 
 class MessageType(str, Enum):
-    GET_GAME_STATE = auto()
+    UPDATE_GAME_STATE = auto()
     SET_PLAYER_INFO = auto()
     ACK = auto()
     DISCONNECT = auto()
@@ -24,7 +24,7 @@ class MessageType(str, Enum):
 
 class Message(BaseModel):
     type: MessageType
-    data: Any
+    data: dict[str, Any] = Field(default_factory=dict)
 
 
 class PlayerRole(str, Enum):
